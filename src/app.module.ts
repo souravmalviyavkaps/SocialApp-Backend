@@ -5,6 +5,10 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
+import { PostsModule } from './posts/posts.module';
+import { SharesModule } from './shares/shares.module';
+import { CommentsModule } from './comments/comments.module';
+import { LikesModule } from './likes/likes.module';
 
 @Module({
   imports: [
@@ -17,6 +21,10 @@ import { AuthModule } from './auth/auth.module';
     MongooseModule.forRoot(process.env.DB_URI),
     UserModule,
     AuthModule,
+    PostsModule,
+    SharesModule,
+    CommentsModule,
+    LikesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
