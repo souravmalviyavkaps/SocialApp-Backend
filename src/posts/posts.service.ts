@@ -1,8 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CreatePostDto } from './dto/create-post.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Post } from './schemas/post.schema';
-import mongoose, { mongo } from 'mongoose';
+import mongoose from 'mongoose';
 import { PaginateDto } from './dto/paginate.dto';
 import { MongoIdDto } from 'src/globalDtos/mongo-id.dto';
 
@@ -90,5 +94,23 @@ export class PostsService {
     return post;
   }
 
-  // async delete(postId: MongoId)
+  async delete(userId, mongoIdDto: MongoIdDto) {
+    const post = await this.findById(mongoIdDto);
+
+    if (post.user._id.toString() !== userId.toString()) {
+      throw new UnauthorizedException(
+        'You are not authorized to delete this post !!',
+      );
+    }
+
+    const { postId } = mongoIdDto;
+    await this.postModel.deleteOne({
+      _id: new mongoose.Types.ObjectId(postId),
+    });
+
+    return {
+      message: 'Post deleted successfully',
+      deletedPost: post,
+    };
+  }
 }

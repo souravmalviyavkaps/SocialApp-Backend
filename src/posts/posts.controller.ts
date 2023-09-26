@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Request,
@@ -52,12 +53,20 @@ export class PostsController {
   }
 
   @Get('/:postId')
-  getPostById(@Param() mongoIdDto: MongoIdDto) {
+  getPostById(@Param() mongoIdDto: MongoIdDto): Promise<object> {
     return this.postsService.findById(mongoIdDto);
   }
 
   @Delete('/:postId')
-  deleteMyPost(@Param() mongoIdDto: MongoIdDto) {
+  deleteMyPost(
+    @Param() mongoIdDto: MongoIdDto,
+    @Request() req,
+  ): Promise<object> {
+    return this.postsService.delete(req.user._id, mongoIdDto);
+  }
+
+  @Patch('/edit')
+  editPost(@Param() mongoIdDto: MongoIdDto) {
     console.log(mongoIdDto);
   }
 }

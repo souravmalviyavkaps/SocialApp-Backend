@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 export class MongoIdDto {
   @IsOptional()
   @IsMongoId()
-  userId: any;
+  userId: string;
 
   @IsOptional()
   @IsMongoId()
