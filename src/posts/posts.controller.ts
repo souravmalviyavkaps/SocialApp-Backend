@@ -4,17 +4,17 @@ import {
   Delete,
   Get,
   Param,
-  Patch,
   Post,
   Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
-import { CreatePostDto } from './dto/create-post.dto';
+import { CreatePostDto } from './dtos/create-post.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
-import { PaginateDto } from './dto/paginate.dto';
-import { MongoIdDto } from 'src/globalDtos/mongo-id.dto';
+import { PaginateDto } from './dtos/paginate.dto';
+import { MongoIdDto } from 'src/shared/dtos/mongo-id.dto';
+import { PostCommentDto } from '../shared/dtos/add-post-comment.dto';
 
 @UseGuards(AuthGuard)
 @Controller('posts')
@@ -54,7 +54,8 @@ export class PostsController {
 
   @Get('/:postId')
   getPostById(@Param() mongoIdDto: MongoIdDto): Promise<object> {
-    return this.postsService.findById(mongoIdDto);
+    const { postId } = mongoIdDto;
+    return this.postsService.findById(postId);
   }
 
   @Delete('/:postId')
@@ -62,11 +63,30 @@ export class PostsController {
     @Param() mongoIdDto: MongoIdDto,
     @Request() req,
   ): Promise<object> {
-    return this.postsService.delete(req.user._id, mongoIdDto);
+    const { postId } = mongoIdDto;
+    return this.postsService.delete(req.user._id, postId);
   }
 
-  @Patch('/edit')
-  editPost(@Param() mongoIdDto: MongoIdDto) {
-    console.log(mongoIdDto);
+  //Likes on post
+  @Post('/:postId/like')
+  likePost(@Param() mongoIdDto: MongoIdDto, @Request() req) {
+    const { postId } = mongoIdDto;
+    return this.postsService.likePost(req.user._id, postId);
+  }
+
+  @Post('/:postId/comment')
+  addPostComment(
+    @Body() postCommentDto: PostCommentDto,
+    @Request() req,
+    @Param() mongoIdDto: MongoIdDto,
+  ) {
+    const { postId } = mongoIdDto;
+    return this.postsService.addComment(req.user._id, postId, postCommentDto);
+  }
+
+  @Delete('/delete-comment/:commentId')
+  deleteComment(@Param() mongoIdDto: MongoIdDto, @Request() req) {
+    const { commentId } = mongoIdDto;
+    return this.postsService.deleteComment(req.user._id, commentId);
   }
 }

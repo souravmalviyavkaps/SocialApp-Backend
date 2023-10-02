@@ -19,6 +19,12 @@ export class Post {
 
   @Prop([String])
   images: string[];
+
+  @Prop({ default: 0 })
+  likesCount: number;
+
+  @Prop({ default: 0 })
+  commentsCount: number;
 }
 
 export const PostSchema = SchemaFactory.createForClass(Post);

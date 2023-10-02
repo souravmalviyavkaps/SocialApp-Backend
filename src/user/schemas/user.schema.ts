@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import * as bcrypt from 'bcrypt';
 
 export enum Gender {
   MALE = 'Male',
@@ -33,3 +34,11 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.pre('save', async function (next) {
+  if (this.isModified('password')) {
+    const hashPassword = await bcrypt.hash(this.password, 10);
+    this.password = hashPassword;
+  }
+  next();
+});
