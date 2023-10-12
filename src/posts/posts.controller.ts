@@ -12,9 +12,8 @@ import {
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dtos/create-post.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
-import { PaginateDto } from './dtos/paginate.dto';
-import { MongoIdDto } from 'src/shared/dtos/mongo-id.dto';
-import { PostCommentDto } from '../shared/dtos/add-post-comment.dto';
+import { PaginationDto } from '../common/dtos/pagination.dto';
+import { MongoIdDto } from 'src/common/dtos/mongo-id.dto';
 
 @UseGuards(AuthGuard)
 @Controller('posts')
@@ -30,26 +29,25 @@ export class PostsController {
   }
 
   @Get('/')
-  getAllPosts(@Query() paginateDto: PaginateDto): Promise<object> {
-    console.log('paginateDto', paginateDto);
-    return this.postsService.findAll(paginateDto);
+  getAllPosts(@Query() paginationDto: PaginationDto): Promise<object> {
+    return this.postsService.findAll(paginationDto);
   }
 
   @Get('/me')
   getMyPosts(
     @Request() req,
-    @Query() paginateDto: PaginateDto,
+    @Query() paginationDto: PaginationDto,
   ): Promise<object> {
-    return this.postsService.findByUser(req.user._id, paginateDto);
+    return this.postsService.findByUser(req.user._id, paginationDto);
   }
 
   @Get('/user/:userId')
   getPostsByUser(
     @Param() mongoIdDto: MongoIdDto,
-    @Query() paginateDto: PaginateDto,
+    @Query() paginationDto: PaginationDto,
   ): Promise<object> {
     const { userId } = mongoIdDto;
-    return this.postsService.findByUser(userId, paginateDto);
+    return this.postsService.findByUser(userId, paginationDto);
   }
 
   @Get('/:postId')
@@ -65,28 +63,5 @@ export class PostsController {
   ): Promise<object> {
     const { postId } = mongoIdDto;
     return this.postsService.delete(req.user._id, postId);
-  }
-
-  //Likes on post
-  @Post('/:postId/like')
-  likePost(@Param() mongoIdDto: MongoIdDto, @Request() req) {
-    const { postId } = mongoIdDto;
-    return this.postsService.likePost(req.user._id, postId);
-  }
-
-  @Post('/:postId/comment')
-  addPostComment(
-    @Body() postCommentDto: PostCommentDto,
-    @Request() req,
-    @Param() mongoIdDto: MongoIdDto,
-  ) {
-    const { postId } = mongoIdDto;
-    return this.postsService.addComment(req.user._id, postId, postCommentDto);
-  }
-
-  @Delete('/delete-comment/:commentId')
-  deleteComment(@Param() mongoIdDto: MongoIdDto, @Request() req) {
-    const { commentId } = mongoIdDto;
-    return this.postsService.deleteComment(req.user._id, commentId);
   }
 }

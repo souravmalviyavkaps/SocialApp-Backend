@@ -20,6 +20,9 @@ export class Comment {
 
   @Prop({ required: true })
   content: string;
+
+  @Prop({ default: 0 })
+  likesCount: number;
 }
 
 export const CommentSchema = SchemaFactory.createForClass(Comment);

@@ -1,30 +1,23 @@
 import {
   ForbiddenException,
-  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { CreatePostDto } from './dtos/create-post.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Post } from './schemas/post.schema';
 import mongoose from 'mongoose';
-import { PaginateDto } from './dtos/paginate.dto';
-import { MongoIdDto } from 'src/shared/dtos/mongo-id.dto';
-import { LikesService } from 'src/likes/likes.service';
+import { PaginationDto } from '../common/dtos/pagination.dto';
+import { MongoIdDto } from 'src/common/dtos/mongo-id.dto';
 import { UserService } from 'src/user/user.service';
-import { PostCommentDto } from '../shared/dtos/add-post-comment.dto';
-import { CommentsService } from 'src/comments/comments.service';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectModel(Post.name)
     private postModel: mongoose.Model<Post>,
-    private likesService: LikesService,
     private usersService: UserService,
-    private commentsService: CommentsService,
   ) {}
 
   async create(postDto: CreatePostDto, userId: MongoIdDto) {
@@ -39,17 +32,70 @@ export class PostsService {
     };
   }
 
-  async findAll(paginateDto: PaginateDto): Promise<object> {
+  async findAll(paginationDto: PaginationDto): Promise<object> {
     try {
-      const { page = 1, limit = 20 } = paginateDto;
+      const { page = 1, limit = 20 } = paginationDto;
       const skip = (page - 1) * limit;
 
-      const posts = await this.postModel
-        .find({})
-        .populate('user', ['name', 'image'])
-        .skip(skip)
-        .limit(limit)
-        .sort('-createdAt');
+      // const posts = await this.postModel
+      //   .find({})
+      //   .populate('user', ['name', 'image'])
+      //   .skip(skip)
+      //   .limit(limit)
+      //   .sort('-createdAt');
+
+      const posts = await this.postModel.aggregate([
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user',
+            foreignField: '_id',
+            pipeline: [
+              {
+                $project: {
+                  name: true,
+                  image: true,
+                },
+              },
+            ],
+            as: 'user',
+          },
+        },
+        {
+          $unwind: {
+            path: '$user',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        {
+          $lookup: {
+            from: 'comments',
+            localField: '_id',
+            foreignField: 'post',
+            pipeline: [
+              {
+                $match: {
+                  parentComment: null,
+                },
+              },
+              {
+                $project: {
+                  content: true,
+                  likesCount: true,
+                },
+              },
+              { $sort: { createdAt: -1 } },
+              { $limit: 3 },
+            ],
+            as: 'comments',
+          },
+        },
+
+        { $sort: { createdAt: -1 } },
+        { $limit: +limit },
+        { $skip: +skip },
+      ]);
 
       const totalPosts = await this.postModel.countDocuments();
       const totalPages = Math.ceil(totalPosts / limit);
@@ -58,7 +104,7 @@ export class PostsService {
       return {
         posts,
         page,
-        documentsPerPage: limit,
+        limit,
         hasPreviousPage,
         hasNextPage,
         totalPages,
@@ -72,12 +118,12 @@ export class PostsService {
     }
   }
 
-  async findByUser(userId, paginateDto: PaginateDto) {
+  async findByUser(userId: string, paginationDto: PaginationDto) {
     try {
       //checking if user exists or not, if not exists usersService will throw not found exception
       await this.usersService.findById(userId);
 
-      const { page = 1, limit = 20 } = paginateDto;
+      const { page = 1, limit = 20 } = paginationDto;
       const skip = (page - 1) * limit;
       const posts = await this.postModel
         .find({ user: new mongoose.Types.ObjectId(userId) })
@@ -95,11 +141,11 @@ export class PostsService {
       return {
         posts,
         page,
-        documentsPerPage: limit,
+        limit,
         hasPreviousPage,
         hasNextPage,
         totalPages,
-        totalPosts,
+        totalDocuments: totalPosts,
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -113,7 +159,7 @@ export class PostsService {
     }
   }
 
-  async findById(postId: string) {
+  async findById(postId: string | mongoose.Types.ObjectId) {
     try {
       const post = await this.postModel
         .findById(postId)
@@ -168,96 +214,50 @@ export class PostsService {
     }
   }
 
-  async likePost(
-    userId: mongoose.Types.ObjectId,
-    postId: string,
-  ): Promise<Post> {
-    try {
-      const existingPost = await this.postModel.findById(postId);
-      if (!existingPost) {
-        throw new NotFoundException(`Post with id ${postId} not found`);
-      }
-      const likeResponse = await this.likesService.likePost(userId, postId);
-      if (likeResponse === 'Like added') {
-        const post = await this.postModel.findByIdAndUpdate(
-          postId,
-          { $inc: { likesCount: +1 } },
-          { new: true },
-        );
-        return post;
-      } else if (likeResponse === 'Like removed') {
-        const post = await this.postModel.findByIdAndUpdate(
-          postId,
-          { $inc: { likesCount: -1 } },
-          { new: true },
-        );
-        return post;
-      }
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof HttpException
-      ) {
-        throw error;
-      }
-      console.log('Error while like post : ', error);
-      throw new InternalServerErrorException(
-        'Something unexpected occurred while like post',
-      );
-    }
+  async increaseLikesCount(postId: mongoose.Types.ObjectId | string) {
+    const post = await this.postModel.findByIdAndUpdate(
+      postId,
+      {
+        $inc: { likesCount: +1 },
+      },
+      { new: true },
+    );
+    return post;
   }
 
-  async addComment(
-    userId: mongoose.Types.ObjectId,
-    postId: string,
-    postCommentDto: PostCommentDto,
-  ): Promise<object> {
-    try {
-      await this.findById(postId);
-      const newComment = await this.commentsService.createPostComment(
-        userId,
-        postId,
-        postCommentDto,
-      );
-
-      await this.postModel.findByIdAndUpdate(postId, {
-        $inc: { commentsCount: 1 },
-      });
-      return {
-        message: 'Comment added',
-        newComment,
-      };
-    } catch (error) {
-      console.log('Error while adding comment to post : ', error);
-      throw new InternalServerErrorException(
-        'Something unexpected occurred while adding comment',
-      );
-    }
+  async decreaseLikesCount(postId: mongoose.Types.ObjectId | string) {
+    const post = await this.postModel.findByIdAndUpdate(
+      postId,
+      {
+        $inc: { likesCount: -1 },
+      },
+      { new: true },
+    );
+    return post;
   }
 
-  async deleteComment(userId: mongoose.Types.ObjectId, commentId: string) {
-    try {
-      const res = await this.commentsService.deletePostComment(
-        userId,
-        commentId,
-      );
-      await this.postModel.findByIdAndUpdate(res.postId, {
-        $inc: { commentsCount: -1 },
-      });
+  async increaseCommentsCount(postId: mongoose.Types.ObjectId | string) {
+    const post = await this.postModel.findByIdAndUpdate(
+      postId,
+      {
+        $inc: { commentsCount: +1 },
+      },
+      { new: true },
+    );
+    return post;
+  }
 
-      return res;
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ForbiddenException
-      ) {
-        throw error;
-      } else {
-        console.log('Error while deleting comment :', error);
-        throw new InternalServerErrorException(
-          `Something unexpected occurred while deleting comment`,
-        );
-      }
-    }
+  async decreaseCommentsCount(
+    postId: mongoose.Types.ObjectId | string,
+    decreaseCount: number,
+  ) {
+    const post = await this.postModel.findByIdAndUpdate(
+      postId,
+      {
+        $inc: { commentsCount: -decreaseCount },
+      },
+      { new: true },
+    );
+    return post;
   }
 }
