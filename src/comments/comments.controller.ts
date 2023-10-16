@@ -2,8 +2,10 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   Param,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -12,6 +14,7 @@ import { CreateCommentDto } from './dtos/create-comment.dto';
 import { CommentsService } from './comments.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { DeleteCommentDto } from './dtos/delete-comment-dto';
+import { PaginationDto } from 'src/common/dtos/pagination.dto';
 
 @UseGuards(AuthGuard)
 @Controller('comments')
@@ -30,6 +33,21 @@ export class CommentsController {
       postId,
       createCommentDto,
     );
+  }
+
+  @Get('post/:postId')
+  getPostComments(
+    @Param() mongoIdDto: MongoIdDto,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    const { postId } = mongoIdDto;
+    return this.commentsService.findByPost(postId, paginationDto);
+  }
+
+  @Get('/:commentId/replies')
+  getCommentReplies(@Param() mongoIdDto: MongoIdDto) {
+    const { commentId } = mongoIdDto;
+    return this.commentsService.findCommentReplies(commentId);
   }
 
   @Delete('/:commentId/delete')

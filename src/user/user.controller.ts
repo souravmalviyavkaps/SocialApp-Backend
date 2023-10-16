@@ -21,14 +21,14 @@ export class UserController {
     return this.userSerice.findAll();
   }
 
-  @Post('/new')
+  @Post('new')
   async createUser(@Body() user: CreateUserDto): Promise<object> {
     return this.userSerice.create(user);
   }
 
   @UseGuards(AuthGuard)
   @Get('profile')
-  getProfile(@Request() req) {
+  getProfile(@Request() req): User {
     return req.user;
   }
 
