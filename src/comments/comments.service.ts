@@ -94,6 +94,19 @@ export class CommentsService {
           },
         },
         {
+          $lookup: {
+            from: 'likes',
+            localField: '_id',
+            foreignField: 'comment',
+            as: 'likes',
+          },
+        },
+        {
+          $addFields: {
+            totalLikes: { $size: '$likes' },
+          },
+        },
+        {
           $unwind: {
             path: '$user',
             preserveNullAndEmptyArrays: true,
